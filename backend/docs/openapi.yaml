@@ -1,0 +1,986 @@
+openapi: 3.1.0
+info:
+  title: NGO Connect API
+  version: 1.0.0
+  description: REST API for NGO, individual, volunteer, and donor workflows.
+servers:
+  - url: http://localhost:5000
+tags:
+  - name: Authentication
+  - name: Users
+  - name: NGO profiles
+  - name: NGO workspace
+  - name: Causes
+  - name: Skills
+  - name: Needs
+  - name: Volunteer applications
+  - name: Contributions
+  - name: Engagement contacts
+  - name: Matching
+  - name: Notifications
+  - name: Admin
+paths:
+  /api/health:
+    get:
+      tags: [Authentication]
+      summary: Check API health
+      responses:
+        '200':
+          description: API is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+  /api/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register an individual or NGO account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, maxLength: 100 }
+                email: { type: string, format: email, maxLength: 150 }
+                password: { type: string, minLength: 8 }
+                role: { type: string, enum: [INDIVIDUAL, NGO], default: INDIVIDUAL }
+                phone: { type: [string, 'null'], maxLength: 20 }
+                city: { type: [string, 'null'], maxLength: 100 }
+                availability: { type: [object, 'null'] }
+      responses:
+        '201':
+          description: Account created; deliveryMode distinguishes local terminal delivery from provider email delivery
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data, deliveryMode]
+                properties:
+                  success: { type: boolean, const: true }
+                  message: { type: string }
+                  deliveryMode: { type: string, enum: [development, email] }
+                  data: { type: object, description: Public account fields only; no password hash or verification token }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { description: Email already registered }
+        '503': { description: Account created but verification email delivery failed; request a resend }
+  /api/auth/verify-email:
+    post:
+      tags: [Authentication]
+      summary: Verify email ownership with a single-use token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+      responses:
+        '200': { description: Email verified }
+        '400': { description: Token is invalid, expired, used, or invalidated }
+  /api/auth/resend-verification:
+    post:
+      tags: [Authentication]
+      summary: Request another email verification message
+      description: Returns the same generic response for missing, verified, rate-limited, and eligible accounts; delivery is attempted only when configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 150 }
+      responses:
+        '202': { description: Request accepted without revealing account status }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '503': { description: Verification delivery is not configured; same response for all addresses }
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate and obtain a bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200': { description: Login token and public user profile returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { description: Invalid credentials }
+        '403': { description: Valid credentials but email is not verified; code EMAIL_NOT_VERIFIED }
+  /api/users/me:
+    get:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: Retrieve the authenticated user's profile
+      responses:
+        '200': { description: Public profile returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: User no longer exists }
+    put:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: Update the authenticated individual's editable profile fields
+      description: Requires the INDIVIDUAL role. Only name, phone, city and availability can be changed; account identity fields are server controlled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, city, availability]
+              additionalProperties: false
+              properties:
+                name: { type: string, maxLength: 100 }
+                phone: { type: [string, 'null'], maxLength: 20 }
+                city: { type: [string, 'null'], maxLength: 100 }
+                availability: { type: [object, 'null'] }
+      responses:
+        '200': { description: Updated public profile returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/users/me/dashboard:
+    get:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: Retrieve the authenticated individual's engagement overview
+      description: Requires the INDIVIDUAL role. Counts and recent activity combine the caller's own volunteer applications and contributions; each record is counted once.
+      responses:
+        '200': { description: Engagement counts and up to eight recent application/contribution records }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/users/me/applications:
+    get:
+      tags: [Volunteer applications]
+      security: [{ bearerAuth: [] }]
+      summary: Retrieve the signed-in individual's volunteer application history
+      description: Requires the INDIVIDUAL role. Returns only the caller's applications, including closed needs, with need title, NGO name, status, message and submission date. Applicant profile data is not returned.
+      responses:
+        '200': { description: The authenticated individual's application history }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/users/me/preferences:
+    get:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: View the authenticated individual's selected causes and skills
+      description: Requires the INDIVIDUAL role.
+      responses:
+        '200': { description: Selected catalog items returned, including active status and skill proficiency }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/users/me/causes:
+    post:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: Add an active cause to the individual's preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [causeId]
+              properties:
+                causeId: { type: string, format: uuid }
+      responses:
+        '201': { description: Cause selected }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Cause missing or inactive }
+        '409': { description: Cause already selected }
+  /api/users/me/causes/{causeId}:
+    delete:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: Remove a cause from the individual's preferences
+      parameters:
+        - { name: causeId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Cause selection removed }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Selection not found }
+  /api/users/me/skills:
+    post:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: Add an active skill to the individual's preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skillId]
+              properties:
+                skillId: { type: string, format: uuid }
+                proficiencyLevel: { $ref: '#/components/schemas/ProficiencyLevel' }
+      responses:
+        '201': { description: Skill selected }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Skill missing or inactive }
+        '409': { description: Skill already selected }
+  /api/users/me/skills/{skillId}:
+    put:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: Update proficiency for an already selected skill
+      parameters:
+        - { name: skillId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proficiencyLevel]
+              properties:
+                proficiencyLevel: { $ref: '#/components/schemas/ProficiencyLevel' }
+      responses:
+        '200': { description: Proficiency updated }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Skill selection not found }
+    delete:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      summary: Remove a skill from the individual's preferences
+      parameters:
+        - { name: skillId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Skill selection removed }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Selection not found }
+  /api/ngos/me:
+    post:
+      tags: [NGO profiles]
+      security: [{ bearerAuth: [] }]
+      summary: Create the authenticated NGO account's profile
+      description: Requires the NGO role. Verification status is assigned by the server. websiteUrl is optional, normalized to an absolute HTTP(S) URL, and is not independently verified.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NGOProfileInput' }
+      responses:
+        '201': { description: NGO profile created }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Profile already exists }
+  /api/ngos/me/dashboard:
+    get:
+      tags: [NGO workspace]
+      summary: Retrieve dashboard statistics and recent responses for the authenticated NGO
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Dashboard counts and recent response activity scoped to the authenticated NGO }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile does not exist }
+  /api/ngos/me/needs:
+    get:
+      tags: [NGO workspace]
+      summary: List needs owned by the authenticated NGO
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: status, in: query, schema: { type: string, enum: [DRAFT, ACTIVE, PARTIALLY_FULFILLED, FULFILLED, COMPLETED, CLOSED, EXPIRED] } }
+        - { name: contributionType, in: query, schema: { type: string, enum: [VOLUNTEER, MATERIAL, MONEY, SKILL] } }
+        - { name: search, in: query, schema: { type: string, maxLength: 100 } }
+      responses:
+        '200': { description: Paginated owner-scoped needs including backend material reservation totals }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile does not exist }
+  /api/ngos/me/needs/{needId}:
+    get:
+      tags: [NGO workspace]
+      summary: Retrieve one need owned by the authenticated NGO, including drafts
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: needId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Owner-scoped need details }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile or owned need does not exist }
+  /api/ngos/me/needs/{needId}/close:
+    post:
+      tags: [NGO workspace]
+      summary: Close a need owned by the authenticated NGO
+      description: Stops new submissions, rejects pending applications and contributions with a recorded system reason, and preserves accepted and in-progress engagements and their material reservations. Repeated closure is idempotent; completed needs cannot be closed.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: needId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Closed need, canceled pending counts, and preserved engagement counts }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile or owned need does not exist }
+        '409': { description: Completed need cannot be closed }
+  /api/ngos/me/responses:
+    get:
+      tags: [NGO workspace]
+      summary: List applications and contributions for needs owned by the authenticated NGO
+      description: Returns applicant name and city only. Direct contact details are available only through accepted-engagement contact endpoints.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: status, in: query, schema: { type: string, enum: [APPLIED, PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, REJECTED] } }
+        - { name: contributionType, in: query, schema: { type: string, enum: [VOLUNTEER, MATERIAL, MONEY, SKILL] } }
+        - { name: needId, in: query, schema: { type: string, format: uuid } }
+        - { name: search, in: query, schema: { type: string, maxLength: 100 } }
+      responses:
+        '200': { description: Paginated applications and contribution history; historical money records are included read-only }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile does not exist }
+    get:
+      tags: [NGO profiles]
+      security: [{ bearerAuth: [] }]
+      summary: Retrieve the authenticated NGO profile
+      responses:
+        '200': { description: NGO profile returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Profile not found }
+    put:
+      tags: [NGO profiles]
+      security: [{ bearerAuth: [] }]
+      summary: Update the authenticated NGO profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NGOProfileInput' }
+      responses:
+        '200': { description: NGO profile updated }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Profile not found }
+  /api/ngos/me/verification/submissions:
+    post:
+      tags: [NGO verification]
+      security: [{ bearerAuth: [] }]
+      summary: Submit or resubmit NGO verification documents
+      description: Requires the NGO role and a current NGO profile. Initial submission is allowed from NOT_SUBMITTED; resubmission is allowed from NEEDS_INFO or REJECTED. Every submission requires a registration certificate. Each file must be PDF, JPEG, or PNG and no larger than 5 MiB; up to 10 supporting documents may be attached. Files are stored privately.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [registrationCertificate]
+              properties:
+                registrationCertificate: { type: string, format: binary, description: Required PDF, JPEG, or PNG; maximum 5 MiB }
+                pan: { type: string, format: binary, description: Optional PDF, JPEG, or PNG; maximum 5 MiB }
+                ngoDarpan: { type: string, format: binary, description: Optional PDF, JPEG, or PNG; maximum 5 MiB }
+                supportingDocuments:
+                  type: array
+                  maxItems: 10
+                  items: { type: string, format: binary, description: PDF, JPEG, or PNG; maximum 5 MiB each }
+      responses:
+        '201': { description: Verification submission created; response contains sanitized document metadata only }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile not found }
+        '409': { description: Current verification state does not permit submission }
+        '413': { description: A document exceeds 5 MiB }
+  /api/ngos/me/verification:
+    get:
+      tags: [NGO verification]
+      security: [{ bearerAuth: [] }]
+      summary: Get the authenticated NGO's verification status and history
+      description: Returns the current submission, sanitized document metadata, and chronological history. Private storage references are omitted.
+      responses:
+        '200': { description: Verification status returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile not found }
+  /api/causes:
+    get:
+      tags: [Causes]
+      summary: List active causes
+      responses:
+        '200': { description: Active causes returned }
+  /api/causes/{id}:
+    get:
+      tags: [Causes]
+      summary: Retrieve an active cause by UUID
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Cause returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { description: Cause not found or inactive }
+  /api/skills:
+    get:
+      tags: [Skills]
+      summary: List active skills
+      responses:
+        '200': { description: Active skills returned }
+  /api/skills/{id}:
+    get:
+      tags: [Skills]
+      summary: Retrieve an active skill by UUID
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Skill returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { description: Skill not found or inactive }
+  /api/needs:
+    get:
+      tags: [Needs]
+      summary: List and search publicly eligible needs
+      description: Returns only ACTIVE or PARTIALLY_FULFILLED, visible needs owned by currently APPROVED, unsuspended NGOs with no deadline or a future deadline. Search and filters are combined with these eligibility rules. Aggregate material quantity_available subtracts ACCEPTED and IN_PROGRESS reservations; PENDING contributions do not reserve quantity.
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 2147483647, default: 0 } }
+        - { name: search, in: query, schema: { type: string, maxLength: 100 }, description: Case-insensitive substring in the need title or description }
+        - { name: causeId, in: query, schema: { type: string, format: uuid } }
+        - { name: contributionType, in: query, schema: { type: string, enum: [VOLUNTEER, MATERIAL, MONEY, SKILL] } }
+        - { name: location, in: query, schema: { type: string, maxLength: 100 }, description: Case-insensitive substring in the need location or NGO city }
+      responses:
+        '200': { description: Paginated filtered needs returned with total, hasPrevious, and hasNext metadata }
+        '400': { $ref: '#/components/responses/ValidationError' }
+    post:
+      tags: [Needs]
+      security: [{ bearerAuth: [] }]
+      summary: Create a need for the authenticated NGO
+      description: Requires the NGO role. New needs default to DRAFT; ACTIVE requires an APPROVED NGO profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NeedInput' }
+      responses:
+        '201': { description: Need created }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile or active cause not found }
+  /api/needs/{id}:
+    get:
+      tags: [Needs]
+      summary: Retrieve a public active need owned by an approved NGO
+      description: The response includes ngo_website_url. NGO contact fields are included only for MONEY-type needs as public external-support contact details; they are distinct from individual contact details, which require an accepted engagement.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Need returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { description: Need not found or not publicly visible }
+    put:
+      tags: [Needs]
+      security: [{ bearerAuth: [] }]
+      summary: Update an owned draft or active need
+      description: Requires the owning NGO role. ACTIVE cannot be moved back to DRAFT; terminal/partially fulfilled needs are not editable here.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NeedUpdateInput' }
+      responses:
+        '200': { description: Need updated }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Need not found, not owned, not editable, or cause inactive }
+        '409': { description: Requested quantity is below already fulfilled and accepted reservations }
+  /api/needs/{needId}/applications:
+    post:
+      tags: [Volunteer applications]
+      security: [{ bearerAuth: [] }]
+      summary: Apply to an active need as an individual
+      description: Requires the INDIVIDUAL role. Applications are accepted only while the need is ACTIVE, its NGO is APPROVED, and its deadline has not passed. A person may apply once per need.
+      parameters:
+        - { name: needId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VolunteerApplicationInput' }
+      responses:
+        '201': { description: Application submitted in APPLIED status }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Need not found, inactive, or expired }
+        '409': { description: An application already exists for this individual and need }
+    get:
+      tags: [Volunteer applications]
+      security: [{ bearerAuth: [] }]
+      summary: List applications for an owned need
+      description: Requires the NGO role and ownership of the specified need. Applicant email and phone are not returned.
+      parameters:
+        - { name: needId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Applications and limited applicant profile fields returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile or need not found }
+  /api/needs/{needId}/applications/{applicationId}:
+    put:
+      tags: [Volunteer applications]
+      security: [{ bearerAuth: [] }]
+      summary: Review an application for an owned need
+      description: Requires the owning NGO. Allowed transitions are APPLIED to ACCEPTED or REJECTED, and ACCEPTED to COMPLETED.
+      parameters:
+        - { name: needId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: applicationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VolunteerApplicationReviewInput' }
+      responses:
+        '200': { description: Application status updated }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Application or NGO profile not found }
+        '409': { description: Invalid status transition or concurrent status change }
+  /api/needs/{needId}/contributions:
+    post:
+      tags: [Contributions]
+      security: [{ bearerAuth: [] }]
+      summary: Submit a contribution to an active public need
+      description: Requires the INDIVIDUAL role. MATERIAL and SKILL submissions must match the need and its NGO must be APPROVED. Only one non-rejected contribution is allowed per individual and need; rejected submissions may be resubmitted. MONEY contributions are no longer accepted; use the NGO's public website/contact details for external support. Historical MONEY records remain readable but are read-only. VOLUNTEER needs use the Volunteer Application API.
+      parameters:
+        - { name: needId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - { $ref: '#/components/schemas/MaterialContributionInput' }
+                - { $ref: '#/components/schemas/SkillContributionInput' }
+      responses:
+        '201': { description: Contribution created with PENDING status }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: The individual already has a non-rejected contribution for this need }
+        '404': { description: Need not found, unavailable, or type does not match }
+    get:
+      tags: [Contributions]
+      security: [{ bearerAuth: [] }]
+      summary: List contributions for an owned need
+      description: Requires the NGO role and ownership of the need.
+      parameters:
+        - { name: needId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Contributions returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile or need not found }
+  /api/users/me/contributions:
+    get:
+      tags: [Contributions]
+      security: [{ bearerAuth: [] }]
+      summary: List the authenticated individual's contributions
+      description: Requires the INDIVIDUAL role. Returns only the authenticated user's contributions, newest first, with need and NGO display names.
+      responses:
+        '200':
+          description: The individual's contribution history, or an empty list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success: { type: boolean, const: true }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [contribution_id, need_id, need_title, contribution_type, quantity, amount, description, status, created_at, ngo_name]
+                      properties:
+                        contribution_id: { type: string, format: uuid }
+                        need_id: { type: string, format: uuid }
+                        need_title: { type: string }
+                        contribution_type: { type: string, enum: [MATERIAL, MONEY, SKILL] }
+                        quantity: { type: [integer, 'null'] }
+                        amount: { type: [number, string, 'null'] }
+                        description: { type: [string, 'null'] }
+                        status: { type: string, enum: [PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, REJECTED] }
+                        created_at: { type: string, format: date-time }
+                        ngo_name: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/needs/{needId}/contributions/{contributionId}/status:
+    put:
+      tags: [Contributions]
+      security: [{ bearerAuth: [] }]
+      summary: Advance a contribution's status for an owned need
+      description: Requires the owning NGO. Transitions are PENDING to ACCEPTED or REJECTED, ACCEPTED to IN_PROGRESS, and IN_PROGRESS to COMPLETED. ACCEPTED/IN_PROGRESS MATERIAL quantities reserve capacity; completion moves quantity into fulfilled totals atomically. Acceptance is rejected if fulfilled plus current reservations plus the contribution exceeds quantity_required. Historical MONEY records cannot be transitioned.
+      parameters:
+        - { name: needId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: contributionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContributionStatusInput' }
+      responses:
+        '200': { description: Contribution status updated }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Need, contribution, or NGO profile not found }
+        '409': { description: Invalid transition, concurrent change, material over-commitment/over-fulfillment, or historical MONEY record is read-only }
+  /api/engagements/applications/{applicationId}/contact:
+    get:
+      tags: [Engagement contacts]
+      security: [{ bearerAuth: [] }]
+      summary: Retrieve contact details for an accepted application
+      description: The applicant may retrieve the owning NGO's contact details and the owning NGO may retrieve the applicant's contact details only when the application is ACCEPTED or COMPLETED. Other users receive not found; pre-acceptance/rejected requests are denied.
+      parameters:
+        - { name: applicationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Participant contact details returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Contact is not available before acceptance }
+        '404': { description: Engagement not found or requester is not a participant }
+  /api/engagements/contributions/{contributionId}/contact:
+    get:
+      tags: [Engagement contacts]
+      security: [{ bearerAuth: [] }]
+      summary: Retrieve contact details for an accepted contribution
+      description: The Individual may retrieve the owning NGO's contact details and the owning NGO may retrieve the contributor's contact details only for ACCEPTED, IN_PROGRESS, or COMPLETED contributions. Other users receive not found; pending/rejected requests are denied. Historical MONEY records are not a source of disclosure.
+      parameters:
+        - { name: contributionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Participant contact details returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Contact is not available before acceptance }
+        '404': { description: Engagement not found or requester is not a participant }
+  /api/matching/recommendations:
+    get:
+      tags: [Matching]
+      security: [{ bearerAuth: [] }]
+      summary: Get deterministic need recommendations for the authenticated individual
+      description: Requires the INDIVIDUAL role. Only needs owned by currently APPROVED NGOs that are active or partially fulfilled with no past deadline are considered. Ranking uses cause preference, qualifying skills, exact city match, and priority; see docs/matching-algorithm.md.
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 2147483647, default: 0 } }
+      responses:
+        '200': { description: Ranked recommendations and pagination returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications for the authenticated user
+      description: Recipient identity comes from the authenticated JWT. Results are recipient-scoped and do not include contact details.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: unreadOnly, in: query, schema: { type: boolean, default: false } }
+      responses:
+        '200': { description: Recipient notifications and total-aware pagination returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Retrieve the authenticated user's unread notification count
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Unread notification count returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/notifications/{notificationId}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark an owned notification as read
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: notificationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Notification marked read }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Notification not found for this account }
+  /api/notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all of the authenticated user's notifications as read
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Number of notifications marked read returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/admin/ngos/pending:
+    get:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: List pending NGO profiles for administrators
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 2147483647, default: 0 } }
+      responses:
+        '200': { description: Pending NGO profiles and pagination returned }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/admin/ngos/{ngoId}/verification:
+    put:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Approve or reject an NGO profile
+      parameters:
+        - { name: ngoId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [verificationStatus]
+              properties:
+                verificationStatus: { type: string, enum: [APPROVED, REJECTED] }
+                message: { type: string, maxLength: 5000, description: Optional decision reason recorded in verification history }
+      responses:
+        '200': { description: Verification decision saved }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile not found }
+        '409': { description: NGO has no current verification submission to review }
+  /api/admin/ngos/{ngoId}/verification/documents/{documentId}:
+    get:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Privately download an NGO verification document
+      description: ADMIN only. The document must belong to a submission for the specified NGO. Response is a no-store attachment; storage keys are never returned.
+      parameters:
+        - { name: ngoId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Private document stream }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO or associated document not found }
+  /api/admin/ngos/{ngoId}/verification/approve:
+    post:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Approve the current NGO verification submission
+      description: Requires a valid current submission containing a registration certificate. NGO, submission, and audit history are updated atomically.
+      parameters:
+        - { name: ngoId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                message: { type: string, maxLength: 5000 }
+      responses:
+        '200': { description: NGO approved and history recorded }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile not found }
+        '409': { description: Current submission is absent or no longer reviewable }
+  /api/admin/ngos/{ngoId}/verification/reject:
+    post:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Reject the current NGO verification submission
+      parameters:
+        - { name: ngoId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [message]
+              properties:
+                message: { type: string, minLength: 1, maxLength: 5000 }
+      responses:
+        '200': { description: NGO rejected and history recorded }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile not found }
+        '409': { description: Current submission is absent or no longer reviewable }
+  /api/admin/ngos/{ngoId}/verification/request-info:
+    post:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Request additional information from an NGO
+      parameters:
+        - { name: ngoId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [message]
+              properties:
+                message: { type: string, minLength: 1, maxLength: 5000 }
+      responses:
+        '200': { description: NGO moved to NEEDS_INFO and history recorded }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: NGO profile not found }
+        '409': { description: Current submission is absent or no longer reviewable }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    SuccessMessage:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+    ProficiencyLevel:
+      type: string
+      enum: [BEGINNER, INTERMEDIATE, ADVANCED, EXPERT]
+    NeedInput:
+      type: object
+      required: [causeId, title, description, contributionType]
+      additionalProperties: false
+      properties:
+        causeId: { type: string, format: uuid }
+        title: { type: string, maxLength: 150 }
+        description: { type: string }
+        contributionType: { type: string, enum: [VOLUNTEER, MATERIAL, MONEY, SKILL] }
+        location: { type: [string, 'null'], maxLength: 150 }
+        availability: { type: [object, 'null'] }
+        quantityRequired: { type: [integer, 'null'], minimum: 1 }
+        priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT], default: MEDIUM }
+        deadline: { type: [string, 'null'], format: date-time, description: ISO 8601 date-time with Z or an explicit UTC offset; date-only and timezone-free values are rejected. }
+        status: { type: string, enum: [DRAFT, ACTIVE], default: DRAFT }
+    NeedUpdateInput:
+      type: object
+      required: [causeId, title, description, contributionType, priority, status]
+      additionalProperties: false
+      properties:
+        causeId: { type: string, format: uuid }
+        title: { type: string, maxLength: 150 }
+        description: { type: string }
+        contributionType: { type: string, enum: [VOLUNTEER, MATERIAL, MONEY, SKILL] }
+        location: { type: [string, 'null'], maxLength: 150 }
+        availability: { type: [object, 'null'] }
+        quantityRequired: { type: [integer, 'null'], minimum: 1 }
+        priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT] }
+        deadline: { type: [string, 'null'], format: date-time, description: ISO 8601 date-time with Z or an explicit UTC offset; date-only and timezone-free values are rejected. }
+        status: { type: string, enum: [DRAFT, ACTIVE] }
+    NGOProfileInput:
+      type: object
+      required: [name, email, city]
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 150 }
+        description: { type: [string, 'null'] }
+        email: { type: string, format: email, maxLength: 150 }
+        phone: { type: [string, 'null'], maxLength: 20 }
+        address: { type: [string, 'null'] }
+        city: { type: string, maxLength: 100 }
+        websiteUrl: { type: [string, 'null'], format: uri, maxLength: 255, description: Optional unverified HTTP(S) URL; credentials are not allowed }
+    VolunteerApplicationInput:
+      type: object
+      additionalProperties: false
+      properties:
+        message: { type: [string, 'null'] }
+    VolunteerApplicationReviewInput:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ACCEPTED, REJECTED, COMPLETED] }
+    MaterialContributionInput:
+      type: object
+      required: [contributionType, quantity]
+      additionalProperties: false
+      properties:
+        contributionType: { type: string, const: MATERIAL }
+        description: { type: [string, 'null'] }
+        quantity: { type: integer, minimum: 1, maximum: 2147483647 }
+    SkillContributionInput:
+      type: object
+      required: [contributionType]
+      additionalProperties: false
+      properties:
+        contributionType: { type: string, const: SKILL }
+        description: { type: [string, 'null'] }
+    ContributionStatusInput:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ACCEPTED, REJECTED, IN_PROGRESS, COMPLETED] }
+    Error:
+      type: object
+      properties:
+        success: { type: boolean, const: false }
+        message: { type: string }
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Error'
+              - type: object
+                properties:
+                  errors: { type: array, items: { type: object } }
+    Unauthorized:
+      description: Authentication token missing or invalid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Authenticated role is not permitted
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

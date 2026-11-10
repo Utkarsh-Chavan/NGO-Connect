@@ -1,0 +1,70 @@
+<div class="min-h-screen bg-[#fbfcf8] text-[#172b24]">
+  <a
+    href="#main-content"
+    class="sr-only z-50 rounded-md bg-white px-4 py-3 text-sm font-semibold text-[#155c45] shadow focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:outline-2 focus:outline-offset-2 focus:outline-[#155c45]"
+  >
+    Skip to main content
+  </a>
+
+  <header class="border-b border-[#e8eee8] bg-[#fbfcf8]/95">
+    <nav
+      aria-label="Main navigation"
+      class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8 lg:px-10"
+    >
+      <a routerLink="/" aria-label="NGO Connect home" class="flex items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#155c45]">
+        <span class="grid size-10 place-items-center rounded-xl bg-[#155c45] text-white" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" class="size-6" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z" stroke-linejoin="round" />
+            <path d="M8 12h2l1.2-2.2 1.7 4.3 1.1-2.1H16" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        <span class="text-lg font-bold tracking-tight text-[#173b2e]">NGO <span class="text-[#648574]">Connect</span></span>
+      </a>
+
+      <div class="hidden items-center gap-8 md:flex">
+        <a routerLink="/needs" class="text-sm font-medium text-[#52645a] transition hover:text-[#155c45] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#155c45]">Browse needs</a>
+        <a href="#how-it-works" class="text-sm font-medium text-[#52645a] transition hover:text-[#155c45] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#155c45]">How it works</a>
+        <a href="#our-impact" class="text-sm font-medium text-[#52645a] transition hover:text-[#155c45] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#155c45]">Our impact</a>
+        <a href="#community" class="text-sm font-medium text-[#52645a] transition hover:text-[#155c45] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#155c45]">For organizations</a>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-4">
+        @if (auth.currentUser(); as user) {
+          <span class="hidden text-right sm:block">
+            <span class="block text-sm font-semibold text-[#285b46]">{{ user.name }}</span>
+            <span class="block text-xs text-[#718077]">{{ user.role }}</span>
+          </span>
+          <a [routerLink]="user.role === 'NGO' ? '/ngo/profile' : '/profile'" class="inline-flex min-h-10 items-center justify-center rounded-full px-3 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155c45] sm:px-4">My profile</a>
+          @if (user.role === 'INDIVIDUAL') {
+            <a routerLink="/individual/dashboard" class="inline-flex min-h-10 items-center justify-center rounded-full px-3 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb]">My workspace</a>
+          }
+          @if (user.role === 'NGO') {
+            <a routerLink="/ngo/dashboard" class="inline-flex min-h-10 items-center justify-center rounded-full px-3 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb]">My workspace</a>
+            <a routerLink="/verification" class="hidden min-h-10 items-center justify-center rounded-full px-3 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb] lg:inline-flex">Verification</a>
+          }
+          @if (user.role === 'ADMIN') { <a routerLink="/admin/ngos/pending" class="inline-flex min-h-10 items-center justify-center rounded-full bg-[#155c45] px-4 text-sm font-semibold text-white hover:bg-[#104b39]">NGO verification</a> }
+          <button type="button" (click)="logout()" class="inline-flex min-h-10 items-center justify-center rounded-full border border-[#cfdbd1] px-4 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155c45]">Sign out</button>
+        } @else {
+          <a routerLink="/login" class="inline-flex min-h-10 items-center justify-center rounded-full px-3 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb] hover:text-[#155c45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155c45] sm:px-4">
+            Login
+          </a>
+          <a routerLink="/register" class="inline-flex min-h-10 items-center justify-center rounded-full bg-[#155c45] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104b39] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#155c45] sm:px-5">
+            Sign Up
+          </a>
+        }
+      </div>
+    </nav>
+  </header>
+
+  <main id="main-content" tabindex="-1">
+    <router-outlet />
+  </main>
+
+  <footer id="community" class="border-t border-[#e8eee8] bg-white">
+    <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
+      <a routerLink="/" class="w-fit text-sm font-bold tracking-tight text-[#173b2e] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#155c45]">NGO <span class="text-[#648574]">Connect</span></a>
+      <p class="max-w-xl text-sm leading-6 text-[#68796f]">A community-first platform helping good intentions find the places they can do the most good.</p>
+      <p class="text-xs text-[#7a8981]">Illustrative project content · © 2026 NGO Connect</p>
+    </div>
+  </footer>
+</div>

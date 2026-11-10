@@ -1,0 +1,118 @@
+<section class="px-5 py-12 sm:px-8 sm:py-16">
+  <div class="mx-auto max-w-2xl">
+    <a routerLink="/" class="inline-flex items-center gap-2 rounded text-sm font-medium text-[#557164] hover:text-[#155c45] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#155c45]">
+      <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" class="size-4" stroke="currentColor" stroke-width="1.8"><path d="M16 10H4m5 5-5-5 5-5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      Back to home
+    </a>
+
+    <div class="mt-7 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-[0_20px_60px_-38px_rgba(25,64,46,0.3)] sm:p-9">
+      <div class="mb-8">
+        <p class="text-xs font-semibold uppercase tracking-[0.15em] text-[#66836e]">Join the community</p>
+        <h1 class="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[#173b2e]">Create your account</h1>
+        <p class="mt-3 text-sm leading-6 text-[#68796f]">Choose how you’re joining and create your secure sign-in.</p>
+      </div>
+
+      @if (registrationComplete(); as delivery) {
+        <section class="rounded-2xl border border-[#cfe2cf] bg-[#f1f8ef] p-5" role="status" aria-live="polite">
+          @if (delivery === 'development') {
+            <h2 class="text-lg font-semibold text-[#173b2e]">Verify your email to continue</h2>
+            <p class="mt-2 text-sm leading-6 text-[#52645a]">Your account was created and is waiting for email verification. The development verification link is printed in the backend terminal. Open that link to verify your account before signing in.</p>
+            <a routerLink="/verify-email" class="mt-4 inline-flex min-h-10 items-center justify-center rounded-full bg-[#155c45] px-4 text-sm font-semibold text-white">I have a verification link</a>
+          } @else if (delivery === 'email') {
+            <h2 class="text-lg font-semibold text-[#173b2e]">Check your email to verify your account</h2>
+            <p class="mt-2 text-sm leading-6 text-[#52645a]">Your account was created. Open the verification link in your email before signing in.</p>
+          } @else {
+            <h2 class="text-lg font-semibold text-[#173b2e]">Your account was created</h2>
+            <p class="mt-2 text-sm leading-6 text-[#52645a]">Verification delivery could not be completed. Once delivery is available, use the resend option on the sign-in page to request another link.</p>
+          }
+          <a routerLink="/login" class="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#cfdbd1] px-4 text-sm font-semibold text-[#285b46]">Go to sign in</a>
+        </section>
+      } @else {
+      <form [formGroup]="registrationForm" (ngSubmit)="submit()" novalidate>
+        <fieldset class="mb-8">
+          <legend class="mb-3 text-sm font-semibold text-[#30493a]">I’m joining as</legend>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border border-[#cfdbd1] px-4 transition has-[:checked]:border-[#528267] has-[:checked]:bg-[#f3f8f1] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[#155c45]">
+              <input type="radio" name="accountType" value="individual" formControlName="accountType" class="size-4 accent-[#155c45]" />
+              <span><span class="block text-sm font-semibold text-[#30493a]">Individual</span><span class="mt-0.5 block text-xs text-[#77857b]">I want to contribute</span></span>
+            </label>
+            <label class="flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border border-[#cfdbd1] px-4 transition has-[:checked]:border-[#528267] has-[:checked]:bg-[#f3f8f1] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[#155c45]">
+              <input type="radio" name="accountType" value="ngo" formControlName="accountType" class="size-4 accent-[#155c45]" />
+              <span><span class="block text-sm font-semibold text-[#30493a]">NGO / organization</span><span class="mt-0.5 block text-xs text-[#77857b]">We have community needs</span></span>
+            </label>
+          </div>
+        </fieldset>
+
+        @if (accountType.value === 'ngo') {
+          <p class="mb-6 rounded-xl border border-[#e4ebe3] bg-[#f7faf5] px-4 py-3 text-sm leading-6 text-[#557164]">This creates your NGO account. Organization profile and verification details are completed separately.</p>
+        }
+
+        <div class="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+          <div class="sm:col-span-2">
+            <label for="register-name" class="mb-2 block text-sm font-semibold text-[#30493a]">{{ accountType.value === 'ngo' ? 'Contact person' : 'Full name' }}</label>
+            <input id="register-name" name="name" type="text" autocomplete="name" formControlName="fullName" [attr.aria-invalid]="showError('fullName')" [attr.aria-describedby]="showError('fullName') ? 'register-name-error' : null" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] outline-none transition placeholder:text-[#9aa79d] focus:border-[#528267] focus:ring-4 focus:ring-[#e7f1e8] aria-[invalid=true]:border-[#b8463c] aria-[invalid=true]:focus:ring-[#fae9e7]" placeholder="Your name" />
+            @if (showError('fullName')) { <p id="register-name-error" class="mt-2 text-sm text-[#a33b32]" role="alert">@if (control('fullName').errors?.['required']) { Enter a name. } @else { Use 100 characters or fewer. }</p> }
+          </div>
+
+          <div>
+            <label for="register-email" class="mb-2 block text-sm font-semibold text-[#30493a]">Email address</label>
+            <input id="register-email" name="email" type="email" autocomplete="email" inputmode="email" formControlName="email" [attr.aria-invalid]="showError('email')" [attr.aria-describedby]="showError('email') ? 'register-email-error' : null" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] outline-none transition placeholder:text-[#9aa79d] focus:border-[#528267] focus:ring-4 focus:ring-[#e7f1e8] aria-[invalid=true]:border-[#b8463c]" placeholder="you@example.org" />
+            @if (showError('email')) { <p id="register-email-error" class="mt-2 text-sm text-[#a33b32]" role="alert">@if (control('email').errors?.['required']) { Enter your email address. } @else { Enter a valid email address (150 characters maximum). }</p> }
+          </div>
+
+          <div>
+            <label for="register-phone" class="mb-2 block text-sm font-semibold text-[#30493a]">Phone number <span class="font-normal text-[#839087]">(optional)</span></label>
+            <input id="register-phone" name="phone" type="tel" autocomplete="tel" formControlName="phone" [attr.aria-invalid]="showError('phone')" [attr.aria-describedby]="showError('phone') ? 'register-phone-error' : null" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] outline-none transition placeholder:text-[#9aa79d] focus:border-[#528267] focus:ring-4 focus:ring-[#e7f1e8] aria-[invalid=true]:border-[#b8463c]" placeholder="Your phone number" />
+            @if (showError('phone')) { <p id="register-phone-error" class="mt-2 text-sm text-[#a33b32]" role="alert">Use 20 characters or fewer.</p> }
+          </div>
+
+          <div class="sm:col-span-2">
+            <label for="register-city" class="mb-2 block text-sm font-semibold text-[#30493a]">{{ accountType.value === 'ngo' ? 'Operating city' : 'Your city' }}</label>
+            <input id="register-city" name="city" type="text" autocomplete="address-level2" formControlName="city" [attr.aria-invalid]="showError('city')" [attr.aria-describedby]="showError('city') ? 'register-city-error' : null" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] outline-none transition placeholder:text-[#9aa79d] focus:border-[#528267] focus:ring-4 focus:ring-[#e7f1e8] aria-[invalid=true]:border-[#b8463c]" placeholder="City" />
+            @if (showError('city')) { <p id="register-city-error" class="mt-2 text-sm text-[#a33b32]" role="alert">@if (control('city').errors?.['required']) { Enter your city. } @else { Use 100 characters or fewer. }</p> }
+          </div>
+
+          <div>
+            <label for="register-password" class="mb-2 block text-sm font-semibold text-[#30493a]">Password</label>
+            <div class="relative">
+              <input id="register-password" name="password" [type]="passwordVisible ? 'text' : 'password'" autocomplete="new-password" formControlName="password" [attr.aria-invalid]="showError('password')" [attr.aria-describedby]="showError('password') ? 'register-password-error password-hint' : 'password-hint'" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 pr-20 text-base text-[#263c30] outline-none transition placeholder:text-[#9aa79d] focus:border-[#528267] focus:ring-4 focus:ring-[#e7f1e8] aria-[invalid=true]:border-[#b8463c]" placeholder="Create a password" />
+              <button type="button" (click)="passwordVisible = !passwordVisible" [attr.aria-pressed]="passwordVisible" [attr.aria-label]="passwordVisible ? 'Hide password' : 'Show password'" class="absolute inset-y-0 right-2 my-1 rounded-lg px-3 text-xs font-semibold text-[#47745a] hover:bg-[#f1f6ef] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#155c45]">{{ passwordVisible ? 'Hide' : 'Show' }}</button>
+            </div>
+            <p id="password-hint" class="mt-2 text-xs text-[#7b8980]">Use at least 8 characters.</p>
+            @if (showError('password')) { <p id="register-password-error" class="mt-2 text-sm text-[#a33b32]" role="alert">@if (control('password').errors?.['required']) { Enter a password. } @else { Use at least 8 characters. }</p> }
+          </div>
+
+          <div>
+            <label for="confirm-password" class="mb-2 block text-sm font-semibold text-[#30493a]">Confirm password</label>
+            <div class="relative">
+              <input id="confirm-password" name="confirm-password" [type]="confirmPasswordVisible ? 'text' : 'password'" autocomplete="new-password" formControlName="confirmPassword" [attr.aria-invalid]="showError('confirmPassword') || (control('confirmPassword').touched && registrationForm.hasError('passwordMismatch'))" [attr.aria-describedby]="showError('confirmPassword') || registrationForm.hasError('passwordMismatch') ? 'confirm-password-error' : null" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 pr-20 text-base text-[#263c30] outline-none transition placeholder:text-[#9aa79d] focus:border-[#528267] focus:ring-4 focus:ring-[#e7f1e8] aria-[invalid=true]:border-[#b8463c]" placeholder="Enter your password again" />
+              <button type="button" (click)="confirmPasswordVisible = !confirmPasswordVisible" [attr.aria-pressed]="confirmPasswordVisible" [attr.aria-label]="confirmPasswordVisible ? 'Hide confirmation password' : 'Show confirmation password'" class="absolute inset-y-0 right-2 my-1 rounded-lg px-3 text-xs font-semibold text-[#47745a] hover:bg-[#f1f6ef] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#155c45]">{{ confirmPasswordVisible ? 'Hide' : 'Show' }}</button>
+            </div>
+            @if (showError('confirmPassword')) {
+              <p id="confirm-password-error" class="mt-2 text-sm text-[#a33b32]" role="alert">
+                @if (control('confirmPassword').errors?.['required']) { Confirm your password. }
+                @else if (registrationForm.hasError('passwordMismatch')) { Passwords do not match. }
+              </p>
+            } @else if (registrationForm.hasError('passwordMismatch') && control('confirmPassword').touched) {
+              <p id="confirm-password-error" class="mt-2 text-sm text-[#a33b32]" role="alert">Passwords do not match.</p>
+            }
+          </div>
+        </div>
+
+        @if (apiErrors().length) {
+          <div class="mt-6 rounded-xl border border-[#f0ccc8] bg-[#fff7f5] px-4 py-3 text-sm text-[#8e342d]" role="alert">
+            <ul class="list-inside list-disc space-y-1">
+              @for (message of apiErrors(); track message) { <li>{{ message }}</li> }
+            </ul>
+          </div>
+        }
+
+        <button type="submit" [disabled]="submitting()" [attr.aria-busy]="submitting()" class="mt-8 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#155c45] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104b39] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#155c45] disabled:cursor-wait disabled:opacity-70">{{ submitting() ? 'Creating account…' : 'Create account' }}</button>
+      </form>
+      }
+
+      <p class="mt-4 border-t border-[#edf0eb] pt-6 text-center text-sm text-[#68796f]">Already have an account? <a routerLink="/login" class="rounded font-semibold text-[#286348] underline decoration-[#c5d9c8] underline-offset-4 hover:text-[#155c45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155c45]">Sign in</a></p>
+    </div>
+    <p class="mt-5 text-center text-xs leading-5 text-[#87938a]">NGO profile details are collected separately from account credentials.</p>
+  </div>
+</section>

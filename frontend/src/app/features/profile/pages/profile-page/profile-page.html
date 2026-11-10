@@ -1,0 +1,105 @@
+<section class="px-5 py-12 sm:px-8 sm:py-16">
+  <div class="mx-auto max-w-3xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.15em] text-[#66836e]">Account</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[#173b2e]">My profile</h1>
+    <p class="mt-3 text-sm leading-6 text-[#68796f]">View and manage the profile associated with your account.</p>
+
+    @if (loading()) {
+      <p class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-6 text-sm text-[#557164]" role="status">Loading your profile…</p>
+    } @else if (errors().length) {
+      <div class="mt-8 rounded-2xl border border-[#f0ccc8] bg-[#fff7f5] p-5 text-sm text-[#8e342d]" role="alert">
+        <ul class="list-inside list-disc space-y-1">@for (message of errors(); track message) { <li>{{ message }}</li> }</ul>
+        <button type="button" (click)="role === 'NGO' ? loadNgoProfile() : loadIndividualProfile()" class="mt-4 rounded-full border border-[#d7a19b] px-4 py-2 font-semibold">Try again</button>
+      </div>
+    } @else if (role === 'INDIVIDUAL' && individualProfile(); as profile) {
+      <article class="mt-8 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+        <h2 class="text-xl font-semibold text-[#173b2e]">Personal details</h2>
+        <p class="mt-2 text-sm text-[#68796f]">Your email and account type are protected account details. Update your name and optional contact/location information here.</p>
+        <p class="mt-5 text-sm text-[#52645a]"><span class="font-semibold">Email:</span> {{ profile.email }} <span class="ml-2 text-xs text-[#718077]">{{ profile.role }}</span></p>
+        @if (notice()) { <p class="mt-4 rounded-xl border border-[#cfe2cf] bg-[#f1f8ef] px-4 py-3 text-sm text-[#285b46]" role="status">{{ notice() }}</p> }
+        <form class="mt-5 grid gap-4 sm:grid-cols-2" [formGroup]="individualForm" (ngSubmit)="saveIndividualProfile()" novalidate>
+          <div><label for="individual-name" class="mb-2 block text-sm font-semibold text-[#30493a]">Name</label><input id="individual-name" formControlName="name" maxlength="100" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-sm focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" />@if (individualForm.controls.name.invalid && individualForm.controls.name.touched) { <p class="mt-1 text-xs text-[#a33b32]" role="alert">Enter a name up to 100 characters.</p> }</div>
+          <div><label for="individual-phone" class="mb-2 block text-sm font-semibold text-[#30493a]">Phone <span class="font-normal text-[#839087]">(optional)</span></label><input id="individual-phone" type="tel" formControlName="phone" maxlength="20" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-sm focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" /></div>
+          <div><label for="individual-city" class="mb-2 block text-sm font-semibold text-[#30493a]">City <span class="font-normal text-[#839087]">(optional)</span></label><input id="individual-city" formControlName="city" maxlength="100" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-sm focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" /></div>
+          <div class="flex items-end"><button type="submit" [disabled]="saving()" class="min-h-12 rounded-full bg-[#155c45] px-6 text-sm font-semibold text-white disabled:opacity-60">{{ saving() ? 'Saving…' : 'Save profile' }}</button></div>
+        </form>
+        @if (errors().length) { <p class="mt-4 text-sm text-[#a33b32]" role="alert">{{ errors()[0] }}</p> }
+        @if (profile.availability) { <p class="mt-5 text-sm text-[#68796f]">Availability information is saved with your account and used where supported.</p> }
+      </article>
+      <article class="mt-6 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+        <h2 class="text-xl font-semibold text-[#173b2e]">Causes you care about</h2><p class="mt-1 text-sm text-[#68796f]">Choose causes to tailor opportunity recommendations.</p>
+        @if (preferenceLoading()) { <p class="mt-3 text-sm text-[#557164]" role="status">Loading your causes and skills…</p> }
+        @if (preferenceErrors().length) { <p class="mt-3 text-sm text-[#a33b32]" role="alert">{{ preferenceErrors()[0] }}</p> }
+        <div class="mt-4 flex flex-wrap gap-2">@for (cause of preferences().causes; track cause.cause_id) { <span class="inline-flex items-center gap-2 rounded-full bg-[#edf5eb] px-3 py-2 text-sm text-[#285b46]">{{ cause.name }}<button type="button" (click)="removeCause(cause.cause_id!)" [attr.aria-label]="'Remove ' + cause.name" class="font-bold">×</button></span> } @empty { <p class="text-sm text-[#718077]">No causes selected yet.</p> }</div>
+        <div class="mt-4 flex flex-col gap-2 sm:flex-row"><label for="cause-choice" class="sr-only">Add a cause</label><select id="cause-choice" [value]="causeToAdd()" (change)="causeToAdd.set($any($event.target).value)" class="min-h-11 min-w-0 flex-1 rounded-xl border border-[#cfdbd1] bg-white px-3 text-sm"><option value="">Choose a cause</option>@for (cause of causeOptions(); track cause.cause_id) { @if (!isCauseSelected(cause.cause_id)) { <option [value]="cause.cause_id">{{ cause.name }}</option> } }</select><button type="button" (click)="addCause()" [disabled]="!causeToAdd()" class="min-h-11 rounded-full border border-[#cfdbd1] px-5 text-sm font-semibold text-[#285b46] disabled:opacity-50">Add cause</button></div>
+      </article>
+      <article class="mt-6 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+        <h2 class="text-xl font-semibold text-[#173b2e]">Skills and experience</h2><p class="mt-1 text-sm text-[#68796f]">Add skills to help match you with relevant opportunities.</p>
+        <div class="mt-4 space-y-3">@for (skill of preferences().skills; track skill.skill_id) { <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f7faf5] p-3"><span class="font-medium text-[#263c30]">{{ skill.name }}</span><div class="flex items-center gap-2"><label class="sr-only" [for]="'level-' + skill.skill_id">{{ skill.name }} proficiency</label><select [id]="'level-' + skill.skill_id" [value]="skill.proficiency_level" (change)="updateSkillProficiency(skill, $any($event.target).value)" class="min-h-10 rounded-lg border border-[#cfdbd1] bg-white px-2 text-sm"><option>BEGINNER</option><option>INTERMEDIATE</option><option>ADVANCED</option><option>EXPERT</option></select><button type="button" (click)="removeSkill(skill.skill_id)" [attr.aria-label]="'Remove ' + skill.name" class="min-h-10 rounded-lg px-3 font-bold text-[#8e342d]">Remove</button></div></div> } @empty { <p class="text-sm text-[#718077]">No skills selected yet.</p> }</div>
+        <div class="mt-4 flex flex-col gap-2 sm:flex-row"><label for="skill-choice" class="sr-only">Add a skill</label><select id="skill-choice" [value]="skillToAdd()" (change)="skillToAdd.set($any($event.target).value)" class="min-h-11 min-w-0 flex-1 rounded-xl border border-[#cfdbd1] bg-white px-3 text-sm"><option value="">Choose a skill</option>@for (skill of skillOptions(); track skill.skill_id) { @if (!isSkillSelected(skill.skill_id)) { <option [value]="skill.skill_id">{{ skill.name }}</option> } }</select><label for="new-skill-level" class="sr-only">New skill proficiency</label><select id="new-skill-level" [value]="proficiencyToAdd()" (change)="proficiencyToAdd.set($any($event.target).value)" class="min-h-11 rounded-xl border border-[#cfdbd1] bg-white px-3 text-sm"><option>BEGINNER</option><option>INTERMEDIATE</option><option>ADVANCED</option><option>EXPERT</option></select><button type="button" (click)="addSkill()" [disabled]="!skillToAdd()" class="min-h-11 rounded-full border border-[#cfdbd1] px-5 text-sm font-semibold text-[#285b46] disabled:opacity-50">Add skill</button></div>
+      </article>
+    } @else if (role === 'NGO') {
+      <article class="mt-8 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-semibold text-[#173b2e]">NGO profile</h2>
+            <p class="mt-1 text-sm text-[#68796f]">Organization information used for your NGO account.</p>
+          </div>
+          @if (ngoProfile(); as profile) {
+            <span class="rounded-full bg-[#f1f6ef] px-3 py-1 text-xs font-semibold text-[#285b46]">{{ profile.verification_status }}</span>
+          }
+        </div>
+        @if (ngoProfile(); as profile) {
+          <div class="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-[#f7faf5] px-4 py-3 text-sm text-[#52645a]">
+            <span>Verification status: <strong>{{ profile.verification_status.replaceAll('_', ' ') }}</strong></span>
+            <a routerLink="/ngo/verification" class="font-semibold text-[#285b46] underline">View verification and documents</a>
+          </div>
+        }
+
+        @if (notice()) { <p class="mt-5 rounded-xl border border-[#cfe2cf] bg-[#f1f8ef] px-4 py-3 text-sm text-[#285b46]" role="status">{{ notice() }}</p> }
+        @if (!ngoProfile()) { <p class="mt-5 rounded-xl border border-[#e4ebe3] bg-[#f7faf5] px-4 py-3 text-sm text-[#557164]">No NGO profile exists yet. Create one to complete your organization details.</p> }
+
+        <form class="mt-6 space-y-5" [formGroup]="ngoForm" (ngSubmit)="saveNgoProfile()" novalidate>
+          <div>
+            <label for="ngo-name" class="mb-2 block text-sm font-semibold text-[#30493a]">Organization name</label>
+            <input id="ngo-name" formControlName="name" maxlength="150" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" [attr.aria-invalid]="fieldInvalid('name')" />
+            @if (fieldInvalid('name')) { <p class="mt-2 text-sm text-[#a33b32]" role="alert">Enter a name of 150 characters or fewer.</p> }
+          </div>
+          <div>
+            <label for="ngo-description" class="mb-2 block text-sm font-semibold text-[#30493a]">Description <span class="font-normal text-[#839087]">(optional)</span></label>
+            <textarea id="ngo-description" formControlName="description" rows="4" class="w-full rounded-xl border border-[#cfdbd1] bg-white px-4 py-3 text-base text-[#263c30] focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]"></textarea>
+          </div>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label for="ngo-email" class="mb-2 block text-sm font-semibold text-[#30493a]">Contact email</label>
+              <input id="ngo-email" type="email" formControlName="email" maxlength="150" autocomplete="email" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" [attr.aria-invalid]="fieldInvalid('email')" />
+              @if (fieldInvalid('email')) { <p class="mt-2 text-sm text-[#a33b32]" role="alert">Enter a valid email address of 150 characters or fewer.</p> }
+            </div>
+            <div>
+              <label for="ngo-phone" class="mb-2 block text-sm font-semibold text-[#30493a]">Phone <span class="font-normal text-[#839087]">(optional)</span></label>
+              <input id="ngo-phone" type="tel" formControlName="phone" maxlength="20" autocomplete="tel" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" [attr.aria-invalid]="fieldInvalid('phone')" />
+              @if (fieldInvalid('phone')) { <p class="mt-2 text-sm text-[#a33b32]" role="alert">Use 20 characters or fewer.</p> }
+            </div>
+          </div>
+          <div>
+            <label for="ngo-address" class="mb-2 block text-sm font-semibold text-[#30493a]">Address <span class="font-normal text-[#839087]">(optional)</span></label>
+            <textarea id="ngo-address" formControlName="address" rows="2" class="w-full rounded-xl border border-[#cfdbd1] bg-white px-4 py-3 text-base text-[#263c30] focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]"></textarea>
+          </div>
+          <div>
+            <label for="ngo-city" class="mb-2 block text-sm font-semibold text-[#30493a]">City</label>
+            <input id="ngo-city" formControlName="city" maxlength="100" autocomplete="address-level2" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" [attr.aria-invalid]="fieldInvalid('city')" />
+            @if (fieldInvalid('city')) { <p class="mt-2 text-sm text-[#a33b32]" role="alert">Enter a city of 100 characters or fewer.</p> }
+          </div>
+          <div>
+            <label for="ngo-website" class="mb-2 block text-sm font-semibold text-[#30493a]">Official website <span class="font-normal text-[#839087]">(optional)</span></label>
+            <input id="ngo-website" type="url" formControlName="websiteUrl" maxlength="255" placeholder="https://example.org" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-base text-[#263c30] focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" [attr.aria-invalid]="fieldInvalid('websiteUrl')" />
+            @if (fieldInvalid('websiteUrl')) { <p class="mt-2 text-sm text-[#a33b32]" role="alert">Enter an absolute HTTP or HTTPS URL without credentials.</p> }
+            <p class="mt-1 text-xs text-[#718077]">This link is provided by your organization and is not independently verified by NGO Connect.</p>
+          </div>
+          @if (errors().length) { <div class="rounded-xl border border-[#f0ccc8] bg-[#fff7f5] px-4 py-3 text-sm text-[#8e342d]" role="alert"><ul class="list-inside list-disc">@for (message of errors(); track message) { <li>{{ message }}</li> }</ul></div> }
+          <button type="submit" [disabled]="saving()" [attr.aria-busy]="saving()" class="inline-flex min-h-12 items-center justify-center rounded-full bg-[#155c45] px-6 text-sm font-semibold text-white transition hover:bg-[#104b39] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#155c45] disabled:cursor-wait disabled:opacity-70">{{ saving() ? 'Saving…' : (ngoProfile() ? 'Save changes' : 'Create NGO profile') }}</button>
+        </form>
+      </article>
+    }
+  </div>
+</section>

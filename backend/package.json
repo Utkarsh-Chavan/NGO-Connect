@@ -1,0 +1,29 @@
+{
+  "name": "ngo-connect",
+  "version": "1.0.0",
+  "description": "REST API backend for NGO Connect",
+  "main": "src/server.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --require ./test/guarded-unit-db.js --test test/adminVerification.test.js test/adminWorkspace.test.js test/ngoVerification.test.js test/needs.api.test.js test/volunteerApplications.test.js test/contributions.test.js test/engagementContact.test.js test/matching.test.js test/emailVerification.test.js test/ngoProfileCreation.test.js test/individualWorkspace.test.js test/ngoWorkspace.test.js test/notifications.test.js test/error.middleware.test.js test/services.test.js test/validators.test.js test/needLifecycle.test.js",
+    "test:integration": "node --test test/integration/needs.integration.test.js test/integration/platform.integration.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.4",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.5.0",
+    "pg": "^8.23.0"
+  }
+}

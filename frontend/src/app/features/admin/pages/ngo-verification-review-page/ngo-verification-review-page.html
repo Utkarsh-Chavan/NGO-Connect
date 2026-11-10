@@ -1,0 +1,124 @@
+<section class="px-5 py-12 sm:px-8 sm:py-16">
+  <div class="mx-auto max-w-5xl">
+    <a routerLink="/admin/ngos/pending" class="inline-flex min-h-10 items-center text-sm font-semibold text-[#285b46] hover:text-[#155c45] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#155c45]">← Back to pending NGOs</a>
+    <p class="mt-7 text-xs font-semibold uppercase tracking-[0.15em] text-[#66836e]">Administration</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[#173b2e] sm:text-4xl">NGO verification review</h1>
+    <p class="mt-3 max-w-2xl text-sm leading-6 text-[#68796f]">Review the organization profile, submitted documents, and decision history.</p>
+
+    @if (notice()) { <p class="mt-6 rounded-xl border border-[#cfe2d0] bg-[#f0f8ef] p-4 text-sm font-medium text-[#285b46]" role="status">{{ notice() }}</p> }
+    @if (errors().length) {
+      <div class="mt-6 rounded-xl border border-[#f0ccc8] bg-[#fff7f5] p-4 text-sm text-[#8e342d]" role="alert">
+        <ul class="list-inside list-disc space-y-1">@for (message of errors(); track message) { <li>{{ message }}</li> }</ul>
+        @if (!savingDecision() && !downloadingDocumentId()) { <button type="button" (click)="load()" class="mt-3 rounded-full border border-[#d7a19b] px-4 py-2 font-semibold">Reload record</button> }
+      </div>
+    }
+
+    @if (loading()) {
+      <p class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-6 text-sm text-[#557164]" role="status">Loading NGO verification…</p>
+    } @else if (verification(); as record) {
+      <article class="mt-8 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Organization</p>
+            <h2 class="mt-1 text-2xl font-semibold text-[#173b2e]">{{ record.ngo.name }}</h2>
+          </div>
+          <span class="rounded-full px-3 py-1.5 text-sm font-semibold" [class]="record.ngo.verification_status === 'APPROVED' ? 'bg-[#e6f3e6] text-[#285b46]' : record.ngo.verification_status === 'REJECTED' ? 'bg-[#fff0ed] text-[#8e342d]' : record.ngo.verification_status === 'NEEDS_INFO' ? 'bg-[#fff2dc] text-[#805a1d]' : 'bg-[#fbf5e6] text-[#715e37]'">
+            {{ record.ngo.verification_status }}
+          </span>
+        </div>
+
+        <dl class="mt-6 grid gap-x-8 gap-y-4 border-t border-[#e8eee8] pt-6 text-sm sm:grid-cols-2">
+          <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Contact email</dt><dd class="mt-1 break-all text-[#263c30]">{{ record.ngo.email }}</dd></div>
+          <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">City</dt><dd class="mt-1 text-[#263c30]">{{ record.ngo.city }}</dd></div>
+          <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Phone</dt><dd class="mt-1 text-[#263c30]">{{ record.ngo.phone || 'Not provided' }}</dd></div>
+          <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Address</dt><dd class="mt-1 whitespace-pre-wrap text-[#263c30]">{{ record.ngo.address || 'Not provided' }}</dd></div>
+          <div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Organization description</dt><dd class="mt-1 whitespace-pre-wrap text-[#263c30]">{{ record.ngo.description || 'Not provided' }}</dd></div>
+          <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Profile created</dt><dd class="mt-1 text-[#263c30]">{{ record.ngo.created_at | date:'medium' }}</dd></div>
+        </dl>
+      </article>
+
+      @if (record.currentSubmission; as submission) {
+        <article class="mt-6 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-[#66836e]">Current submission</p>
+              <h2 class="mt-1 text-xl font-semibold text-[#173b2e]">Submission #{{ submission.submission_number }}</h2>
+            </div>
+            <span class="rounded-full bg-[#f1f6ef] px-3 py-1 text-xs font-semibold text-[#285b46]">{{ submission.status }}</span>
+          </div>
+          <p class="mt-2 text-sm text-[#68796f]">Submitted {{ submission.submitted_at ? (submission.submitted_at | date:'medium') : 'date unavailable' }}</p>
+
+          @if (submission.documents.length) {
+            <ul class="mt-5 divide-y divide-[#eef1eb] rounded-xl border border-[#e4ebe3]">
+              @for (document of submission.documents; track document.document_id) {
+                <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+                  <div class="min-w-0">
+                    <p class="text-sm font-semibold text-[#30493a]">{{ formatDocumentType(document.document_type) }}</p>
+                    <p class="mt-1 break-all text-sm text-[#68796f]">{{ document.original_filename }}</p>
+                    <p class="mt-1 text-xs text-[#839087]">{{ document.content_type }} · {{ document.size_bytes | number }} bytes · {{ document.created_at | date:'mediumDate' }}</p>
+                  </div>
+                  <button type="button" (click)="downloadDocument(document)" [disabled]="!!downloadingDocumentId() || savingDecision()" [attr.aria-busy]="downloadingDocumentId() === document.document_id" class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-[#cfdbd1] px-4 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb] disabled:cursor-wait disabled:opacity-50">
+                    {{ downloadingDocumentId() === document.document_id ? 'Retrieving…' : 'Download securely' }}
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="mt-5 rounded-xl border border-[#e4ebe3] bg-[#f7faf5] p-4 text-sm text-[#557164]">No documents are attached to the current submission.</p>
+          }
+
+          @if (canReview()) {
+            <div class="mt-7 flex flex-wrap gap-3 border-t border-[#e8eee8] pt-6">
+              <button type="button" (click)="requestDecision('APPROVED')" [disabled]="savingDecision() || !!downloadingDocumentId()" class="min-h-11 rounded-full bg-[#155c45] px-5 text-sm font-semibold text-white transition hover:bg-[#104b39] disabled:opacity-50">Approve</button>
+              <button type="button" (click)="requestDecision('REJECTED')" [disabled]="savingDecision() || !!downloadingDocumentId()" class="min-h-11 rounded-full border border-[#d7a19b] px-5 text-sm font-semibold text-[#8e342d] disabled:opacity-50">Reject</button>
+              <button type="button" (click)="requestDecision('NEEDS_INFO')" [disabled]="savingDecision() || !!downloadingDocumentId()" class="min-h-11 rounded-full border border-[#d8c79f] px-5 text-sm font-semibold text-[#715e37] disabled:opacity-50">Request information</button>
+            </div>
+          } @else {
+            <p class="mt-6 rounded-xl border border-[#e4ebe3] bg-[#f7faf5] p-4 text-sm text-[#557164]">No decision is available because this submission is not pending review.</p>
+          }
+
+          @if (confirmation(); as decision) {
+            <section class="mt-5 rounded-2xl border border-[#dce8dc] bg-[#f7faf5] p-5" aria-label="Confirm verification decision">
+              <h3 class="text-base font-semibold text-[#263c30]">Confirm: {{ decisionTitle(decision) }}</h3>
+              <p class="mt-1 text-sm leading-6 text-[#68796f]">This decision will be recorded in the verification history.</p>
+              <label for="decision-message" class="mt-4 block text-sm font-semibold text-[#30493a]">
+                Decision message @if (decision !== 'APPROVED') { <span class="text-[#a33b32]">Required</span> } @else { <span class="font-normal text-[#839087]">Optional</span> }
+              </label>
+              <textarea id="decision-message" rows="3" maxlength="5000" [value]="decisionMessage()" (input)="decisionMessage.set($any($event.target).value)" [required]="decision !== 'APPROVED'" class="mt-2 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 py-3 text-sm text-[#263c30] focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]" placeholder="Add a clear explanation for the NGO"></textarea>
+              <div class="mt-4 flex flex-wrap gap-3">
+                <button type="button" (click)="confirmDecision()" [disabled]="savingDecision() || !!downloadingDocumentId()" [attr.aria-busy]="savingDecision()" class="min-h-10 rounded-full bg-[#155c45] px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-50">{{ savingDecision() ? 'Saving…' : 'Confirm decision' }}</button>
+                <button type="button" (click)="cancelDecision()" [disabled]="savingDecision()" class="min-h-10 rounded-full border border-[#cfdbd1] px-4 text-sm font-semibold text-[#285b46] disabled:opacity-50">Cancel</button>
+              </div>
+            </section>
+          }
+        </article>
+      } @else {
+        <article class="mt-6 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+          <h2 class="text-xl font-semibold text-[#173b2e]">No current submission</h2>
+          <p class="mt-2 text-sm text-[#68796f]">This NGO has no current verification documents to review.</p>
+        </article>
+      }
+
+      <article class="mt-6 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+        <h2 class="text-xl font-semibold text-[#173b2e]">Verification history</h2>
+        @if (record.history.length) {
+          <ol class="mt-5 space-y-5 border-l-2 border-[#dce8dc] pl-5">
+            @for (event of record.history; track event.history_id) {
+              <li class="relative">
+                <span class="absolute -left-[1.68rem] top-1 size-2.5 rounded-full bg-[#528267]" aria-hidden="true"></span>
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                  <p class="text-sm font-semibold text-[#30493a]">{{ event.action.replace('_', ' ') }}</p>
+                  <time class="text-xs text-[#839087]">{{ event.created_at | date:'medium' }}</time>
+                </div>
+                @if (event.actor_name_snapshot) { <p class="mt-1 text-xs text-[#718077]">Recorded by {{ event.actor_name_snapshot }}</p> }
+                @if (event.message) { <p class="mt-2 whitespace-pre-wrap rounded-lg bg-[#f7faf5] px-3 py-2 text-sm leading-6 text-[#52645a]">{{ event.message }}</p> }
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="mt-3 text-sm text-[#68796f]">No verification history is recorded.</p>
+        }
+      </article>
+    }
+  </div>
+</section>

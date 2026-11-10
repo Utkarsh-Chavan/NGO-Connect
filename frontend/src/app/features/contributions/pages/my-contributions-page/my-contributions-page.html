@@ -1,0 +1,67 @@
+<section class="px-5 py-12 sm:px-8 sm:py-16">
+  <div class="mx-auto max-w-5xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.15em] text-[#66836e]">Individual workspace</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[#173b2e] sm:text-4xl">My contributions</h1>
+    <p class="mt-3 max-w-2xl text-sm leading-6 text-[#68796f]">Review the contributions you have submitted and their latest status.</p>
+
+    @if (loading()) {
+      <p class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-6 text-sm text-[#557164]" role="status">Loading your contributions…</p>
+    } @else if (errors().length) {
+      <div class="mt-8 rounded-2xl border border-[#f0ccc8] bg-[#fff7f5] p-5 text-sm text-[#8e342d]" role="alert">
+        <ul class="list-inside list-disc space-y-1">@for (message of errors(); track message) { <li>{{ message }}</li> }</ul>
+      </div>
+    } @else if (!contributions().length) {
+      <div class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-8 text-center">
+        <h2 class="text-lg font-semibold text-[#263c30]">No contributions yet</h2>
+        <p class="mt-2 text-sm text-[#68796f]">When you contribute to a need, it will appear here.</p>
+        <a [routerLink]="browseNeedsRoute()" class="mt-5 inline-flex min-h-10 items-center justify-center rounded-full bg-[#155c45] px-5 text-sm font-semibold text-white hover:bg-[#104b39]">Browse needs</a>
+      </div>
+    } @else {
+      <div class="mt-7 flex flex-wrap gap-2" aria-label="Filter contributions by status">
+        @for (status of ['ALL', 'PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'REJECTED']; track status) {
+          <button type="button" (click)="setFilter($any(status))" [attr.aria-pressed]="filter() === status"
+            class="min-h-10 rounded-full border px-4 text-sm font-semibold transition"
+            [class]="filter() === status ? 'border-[#155c45] bg-[#155c45] text-white' : 'border-[#cfdbd1] bg-white text-[#285b46] hover:bg-[#edf5eb]'">
+            {{ status === 'ALL' ? 'All' : statusLabel($any(status)) }}
+          </button>
+        }
+      </div>
+
+      @if (!visibleContributions().length) {
+        <p class="mt-6 rounded-2xl border border-[#e4ebe3] bg-white p-6 text-sm text-[#68796f]">No contributions match this status.</p>
+      } @else {
+        <div class="mt-6 space-y-4">
+          @for (contribution of visibleContributions(); track contribution.contribution_id) {
+            <article class="rounded-2xl border border-[#e4ebe3] bg-white p-5 shadow-sm sm:p-6">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  @if (canOpenNeed(contribution)) { <a [routerLink]="needRoute(contribution.need_id)" class="text-lg font-semibold text-[#173b2e] hover:text-[#155c45]">{{ contribution.need_title }}</a> } @else { <span class="text-lg font-semibold text-[#173b2e]">{{ contribution.need_title }}</span> }
+                  <p class="mt-1 text-sm text-[#68796f]">Shared by {{ contribution.ngo_name }}</p>
+                </div>
+                <span class="rounded-full bg-[#edf5eb] px-3 py-1 text-xs font-semibold text-[#285b46]">{{ statusLabel(contribution.status) }}</span>
+              </div>
+              @if (contribution.need_status === 'CLOSED') { <p class="mt-3 rounded-xl bg-[#f7f8f2] p-3 text-sm text-[#52645a]">This need is closed. Your accepted or in-progress contribution remains active and can still be completed.</p> } @else if (contribution.need_status === 'EXPIRED') { <p class="mt-3 rounded-xl bg-[#f7f8f2] p-3 text-sm text-[#52645a]">This need has passed its deadline. No new contributions are accepted; your existing contribution remains in the history.</p> }
+              @if (contribution.resolution_reason) { <p class="mt-2 text-sm text-[#68796f]">Update: {{ contribution.resolution_reason }}</p> }
+              <dl class="mt-5 grid gap-4 border-t border-[#edf0eb] pt-4 text-sm sm:grid-cols-3">
+                <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Type</dt><dd class="mt-1 text-[#263c30]">{{ contribution.contribution_type }}</dd></div>
+                @if (contribution.quantity !== null) { <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Quantity</dt><dd class="mt-1 text-[#263c30]">{{ contribution.quantity }}</dd></div> }
+                @if (contribution.amount !== null) { <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Legacy amount field</dt><dd class="mt-1 text-[#263c30]">{{ contribution.amount }}</dd></div> }
+                <div><dt class="text-xs font-semibold uppercase tracking-wide text-[#718077]">Submitted</dt><dd class="mt-1 text-[#263c30]">{{ contribution.created_at | date:'medium' }}</dd></div>
+              </dl>
+              @if (contribution.description) { <p class="mt-4 whitespace-pre-line text-sm leading-6 text-[#52645a]"><span class="font-semibold">Details:</span> {{ contribution.description }}</p> }
+              @if (contribution.contribution_type === 'MONEY') { <p class="mt-3 text-xs text-[#806942]">Historical record only. NGO Connect did not process or verify a payment.</p> }
+              @if (canViewContact(contribution)) {
+                @if (contactDetails()[contribution.contribution_id]; as contact) {
+                  <div class="mt-4 rounded-xl bg-[#f7faf5] p-4 text-sm text-[#43564b]"><p class="font-semibold">Organization contact</p><p class="mt-1">{{ contact.name }}</p><p class="mt-1"><a class="underline" [href]="'mailto:' + contact.email">{{ contact.email }}</a></p>@if (contact.phone) { <p class="mt-1"><a class="underline" [href]="'tel:' + contact.phone">{{ contact.phone }}</a></p> }</div>
+                } @else {
+                  <button type="button" (click)="loadContact(contribution)" [disabled]="contactLoading()[contribution.contribution_id]" class="mt-4 min-h-10 rounded-full border border-[#cfdbd1] px-4 text-sm font-semibold text-[#285b46] disabled:opacity-60">{{ contactLoading()[contribution.contribution_id] ? 'Loading contact…' : 'View organization contact' }}</button>
+                  @if (contactErrors()[contribution.contribution_id]) { <p class="mt-2 text-sm text-[#a33b32]" role="alert">{{ contactErrors()[contribution.contribution_id] }}</p> }
+                }
+              }
+            </article>
+          }
+        </div>
+      }
+    }
+  </div>
+</section>

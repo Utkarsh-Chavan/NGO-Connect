@@ -1,0 +1,55 @@
+<section class="px-5 py-12 sm:px-8 sm:py-16">
+  <div class="mx-auto max-w-7xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.15em] text-[#66836e]">Personalized opportunities</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[#173b2e] sm:text-4xl">Recommended for you</h1>
+    <p class="mt-3 max-w-2xl text-sm leading-6 text-[#68796f]">Recommendations are ranked by the matching service. Scores and reasons below come directly from the API.</p>
+
+    @if (loading()) {
+      <p class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-6 text-sm text-[#557164]" role="status">Finding relevant needs…</p>
+    } @else if (errors().length) {
+      <div class="mt-8 rounded-2xl border border-[#f0ccc8] bg-[#fff7f5] p-5 text-sm text-[#8e342d]" role="alert">
+        <ul class="list-inside list-disc space-y-1">@for (message of errors(); track message) { <li>{{ message }}</li> }</ul>
+        <button type="button" (click)="load()" class="mt-4 rounded-full border border-[#d7a19b] px-4 py-2 font-semibold">Try again</button>
+      </div>
+    } @else if (!recommendations().length) {
+      <div class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-8 text-center">
+        <h2 class="text-lg font-semibold text-[#263c30]">No recommendations yet</h2>
+        <p class="mt-2 text-sm text-[#68796f]">There are no eligible needs to show right now. You can still browse all public needs.</p>
+        <a [routerLink]="browseNeedsRoute()" class="mt-4 inline-flex min-h-11 items-center justify-center rounded-full bg-[#155c45] px-5 text-sm font-semibold text-white">Browse needs</a>
+      </div>
+    } @else {
+      <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        @for (need of recommendations(); track need.need_id) {
+          <article class="flex h-full flex-col rounded-2xl border border-[#e4ebe3] bg-white p-6 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <span class="rounded-full bg-[#edf5eb] px-3 py-1 text-xs font-semibold text-[#285b46]">{{ need.cause_name }}</span>
+              <span class="rounded-full bg-[#155c45] px-3 py-1 text-xs font-bold text-white" [attr.aria-label]="'Matching score ' + need.score">{{ need.score }} points</span>
+            </div>
+            <h2 class="mt-4 text-xl font-semibold leading-snug text-[#173b2e]">{{ need.title }}</h2>
+            <p class="mt-2 line-clamp-3 text-sm leading-6 text-[#68796f]">{{ need.description }}</p>
+            <dl class="mt-5 space-y-2 text-sm text-[#52645a]">
+              <div><dt class="inline font-semibold">Organization: </dt><dd class="inline">{{ need.ngo_name }}</dd></div>
+              <div><dt class="inline font-semibold">Type: </dt><dd class="inline">{{ need.contribution_type }}</dd></div>
+              @if (need.location) { <div><dt class="inline font-semibold">Location: </dt><dd class="inline">{{ need.location }}</dd></div> }
+              @if (need.deadline) { <div><dt class="inline font-semibold">Deadline: </dt><dd class="inline">{{ need.deadline | date:'mediumDate' }}</dd></div> }
+            </dl>
+            <div class="mt-5 rounded-xl bg-[#f5f8f3] p-4">
+              <h3 class="text-xs font-bold uppercase tracking-wide text-[#285b46]">Why it matches</h3>
+              @if (need.reasons.length) {
+                <ul class="mt-2 list-inside list-disc space-y-1 text-sm leading-5 text-[#52645a]">
+                  @for (reason of need.reasons; track reason) { <li>{{ reason }}</li> }
+                </ul>
+              } @else { <p class="mt-2 text-sm text-[#68796f]">No matching reasons were supplied.</p> }
+            </div>
+            <a [routerLink]="needRoute(need.need_id)" class="mt-6 inline-flex min-h-11 items-center justify-center rounded-full border border-[#cfdbd1] px-5 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb]">View details</a>
+          </article>
+        }
+      </div>
+      <nav aria-label="Recommendation pages" class="mt-8 flex items-center justify-between">
+        <button type="button" (click)="previousPage()" [disabled]="offset() === 0" class="min-h-11 rounded-full border border-[#cfdbd1] px-5 text-sm font-semibold text-[#285b46] disabled:opacity-40">Previous</button>
+        <span class="text-xs text-[#718077]">Showing {{ offset() + 1 }}–{{ offset() + recommendations().length }} of {{ total() }}</span>
+        <button type="button" (click)="nextPage()" [disabled]="offset() + limit >= total()" class="min-h-11 rounded-full border border-[#cfdbd1] px-5 text-sm font-semibold text-[#285b46] disabled:opacity-40">Next</button>
+      </nav>
+    }
+  </div>
+</section>

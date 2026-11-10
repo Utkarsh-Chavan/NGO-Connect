@@ -1,0 +1,138 @@
+<section class="px-5 py-12 sm:px-8 sm:py-16">
+  <div class="mx-auto max-w-4xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.15em] text-[#66836e]">Organization</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[#173b2e] sm:text-4xl">NGO verification</h1>
+    <p class="mt-3 max-w-2xl text-sm leading-6 text-[#68796f]">Submit your organization documents and follow verification updates from the review team.</p>
+
+    @if (notice()) {
+      <p class="mt-6 rounded-xl border border-[#cfe2d0] bg-[#f0f8ef] p-4 text-sm font-medium text-[#285b46]" role="status">{{ notice() }}</p>
+    }
+    @if (errors().length) {
+      <div class="mt-6 rounded-xl border border-[#f0ccc8] bg-[#fff7f5] p-4 text-sm text-[#8e342d]" role="alert">
+        <ul class="list-inside list-disc space-y-1">@for (message of errors(); track message) { <li>{{ message }}</li> }</ul>
+        <button type="button" (click)="loadVerification()" class="mt-3 rounded-full border border-[#d7a19b] px-4 py-2 font-semibold">Try again</button>
+      </div>
+    }
+
+    @if (loading()) {
+      <p class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-6 text-sm text-[#557164]" role="status">Loading verification status…</p>
+    } @else if (profileMissing()) {
+      <div class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+        <h2 class="text-xl font-semibold text-[#173b2e]">Complete your NGO profile first</h2>
+        <p class="mt-2 text-sm leading-6 text-[#68796f]">Create your organization profile before submitting verification documents.</p>
+        <a routerLink="/profile" class="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[#155c45] px-5 text-sm font-semibold text-white hover:bg-[#104b39]">Complete NGO profile</a>
+      </div>
+    } @else if (verification(); as record) {
+      <article class="mt-8 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold text-[#173b2e]">{{ record.ngo.name }}</h2>
+            <p class="mt-1 text-sm text-[#68796f]">Verification status</p>
+          </div>
+          <span class="rounded-full px-3 py-1.5 text-sm font-semibold" [class]="statusClass(record.ngo.verification_status)">
+            {{ statusLabel(record.ngo.verification_status) }}
+          </span>
+        </div>
+        <p class="mt-5 text-sm leading-6 text-[#52645a]">
+          @switch (record.ngo.verification_status) {
+            @case ('NOT_SUBMITTED') { Your organization has not submitted documents for review yet. }
+            @case ('PENDING') { Your documents are with the review team. You will see updates here. }
+            @case ('NEEDS_INFO') { The review team requested more information. Submit the corrected documents below. }
+            @case ('APPROVED') { Your organization is approved to use NGO publishing features. }
+            @case ('REJECTED') { Your submission was rejected. You may correct it and submit again. }
+          }
+        </p>
+
+        @if (record.currentSubmission; as submission) {
+          <div class="mt-8 border-t border-[#e8eee8] pt-6">
+            <h3 class="text-base font-semibold text-[#263c30]">Current submission · #{{ submission.submission_number }}</h3>
+            <p class="mt-1 text-sm text-[#68796f]">{{ submission.status }}@if (submission.submitted_at) { · submitted {{ submission.submitted_at | date:'mediumDate' }} }</p>
+            @if (submission.documents.length) {
+              <ul class="mt-4 divide-y divide-[#eef1eb] rounded-xl border border-[#e4ebe3]">
+                @for (document of submission.documents; track document.document_id) {
+                  <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                    <span class="font-medium text-[#30493a]">{{ formatDocumentType(document.document_type) }}</span>
+                    <span class="break-all text-[#68796f]">{{ document.original_filename }}</span>
+                    <span class="text-xs text-[#839087]">{{ document.size_bytes | number }} bytes</span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="mt-3 text-sm text-[#68796f]">No document metadata is available for this submission.</p>
+            }
+          </div>
+        } @else if (record.ngo.verification_status === 'NOT_SUBMITTED') {
+          <p class="mt-6 rounded-xl border border-[#e4ebe3] bg-[#f7faf5] px-4 py-3 text-sm text-[#557164]">No verification submission has been created.</p>
+        }
+
+        @if (record.history.length) {
+          <div class="mt-8 border-t border-[#e8eee8] pt-6">
+            <h3 class="text-base font-semibold text-[#263c30]">Verification history</h3>
+            <ol class="mt-4 space-y-4 border-l-2 border-[#dce8dc] pl-4">
+              @for (event of record.history; track event.history_id) {
+                <li class="relative">
+                  <span class="absolute -left-[1.38rem] top-1 size-2.5 rounded-full bg-[#528267]" aria-hidden="true"></span>
+                  <p class="text-sm font-semibold text-[#30493a]">{{ event.action.replace('_', ' ') }} <span class="font-normal text-[#718077]">· {{ event.created_at | date:'medium' }}</span></p>
+                  @if (event.message) { <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#68796f]">{{ event.message }}</p> }
+                </li>
+              }
+            </ol>
+          </div>
+        } @else {
+          <p class="mt-8 border-t border-[#e8eee8] pt-6 text-sm text-[#68796f]">There is no verification history yet.</p>
+        }
+      </article>
+
+      @if (canSubmit()) {
+        <article class="mt-6 rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-8">
+          <h2 class="text-xl font-semibold text-[#173b2e]">{{ record.ngo.verification_status === 'NOT_SUBMITTED' ? 'Submit for verification' : 'Submit updated documents' }}</h2>
+          <p class="mt-2 text-sm leading-6 text-[#68796f]">Upload a registration certificate. PDF, JPG/JPEG, or PNG files up to 5 MiB each are accepted. Files are stored privately.</p>
+
+          <form class="mt-6 space-y-5" (submit)="$event.preventDefault(); submit()" novalidate>
+            <div>
+              <label for="registration-certificate" class="mb-2 block text-sm font-semibold text-[#30493a]">Registration certificate <span class="text-[#a33b32]">Required</span></label>
+              <input id="registration-certificate" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="selectSingleFile('registrationCertificate', $event)" class="block w-full text-sm text-[#52645a] file:mr-4 file:min-h-10 file:rounded-full file:border-0 file:bg-[#edf5eb] file:px-4 file:text-sm file:font-semibold file:text-[#285b46]" />
+              @if (files().registrationCertificate; as file) {
+                <div class="mt-2 flex items-center justify-between gap-3 rounded-lg bg-[#f7faf5] px-3 py-2 text-sm"><span class="break-all">{{ file.name }}</span><button type="button" (click)="removeSingleFile('registrationCertificate')" class="shrink-0 font-semibold text-[#8e342d]">Remove</button></div>
+              }
+            </div>
+
+            <div class="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label for="pan-document" class="mb-2 block text-sm font-semibold text-[#30493a]">PAN document <span class="font-normal text-[#839087]">Optional</span></label>
+                <input id="pan-document" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="selectSingleFile('pan', $event)" class="block w-full text-sm text-[#52645a] file:mr-3 file:min-h-10 file:rounded-full file:border-0 file:bg-[#edf5eb] file:px-3 file:text-sm file:font-semibold file:text-[#285b46]" />
+                @if (files().pan; as file) { <div class="mt-2 flex items-center justify-between gap-2 rounded-lg bg-[#f7faf5] px-3 py-2 text-sm"><span class="break-all">{{ file.name }}</span><button type="button" (click)="removeSingleFile('pan')" class="shrink-0 font-semibold text-[#8e342d]">Remove</button></div> }
+              </div>
+              <div>
+                <label for="ngo-darpan" class="mb-2 block text-sm font-semibold text-[#30493a]">NGO Darpan document <span class="font-normal text-[#839087]">Optional</span></label>
+                <input id="ngo-darpan" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="selectSingleFile('ngoDarpan', $event)" class="block w-full text-sm text-[#52645a] file:mr-3 file:min-h-10 file:rounded-full file:border-0 file:bg-[#edf5eb] file:px-3 file:text-sm file:font-semibold file:text-[#285b46]" />
+                @if (files().ngoDarpan; as file) { <div class="mt-2 flex items-center justify-between gap-2 rounded-lg bg-[#f7faf5] px-3 py-2 text-sm"><span class="break-all">{{ file.name }}</span><button type="button" (click)="removeSingleFile('ngoDarpan')" class="shrink-0 font-semibold text-[#8e342d]">Remove</button></div> }
+              </div>
+            </div>
+
+            <div>
+              <label for="supporting-documents" class="mb-2 block text-sm font-semibold text-[#30493a]">Supporting documents <span class="font-normal text-[#839087]">Optional · up to 10 files</span></label>
+              <input id="supporting-documents" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="selectSupportingFiles($event)" class="block w-full text-sm text-[#52645a] file:mr-4 file:min-h-10 file:rounded-full file:border-0 file:bg-[#edf5eb] file:px-4 file:text-sm file:font-semibold file:text-[#285b46]" />
+              @if (files().supportingDocuments.length) {
+                <ul class="mt-3 space-y-2">
+                  @for (file of files().supportingDocuments; track $index; let index = $index) {
+                    <li class="flex items-center justify-between gap-3 rounded-lg bg-[#f7faf5] px-3 py-2 text-sm"><span class="break-all">{{ file.name }}</span><button type="button" (click)="removeSupportingFile(index)" class="shrink-0 font-semibold text-[#8e342d]">Remove</button></li>
+                  }
+                </ul>
+              }
+            </div>
+
+            @if (validationErrors().length) {
+              <div class="rounded-xl border border-[#f0ccc8] bg-[#fff7f5] px-4 py-3 text-sm text-[#8e342d]" role="alert">
+                <ul class="list-inside list-disc space-y-1">@for (message of validationErrors(); track message) { <li>{{ message }}</li> }</ul>
+              </div>
+            }
+            <button type="submit" [disabled]="submitting() || loading()" [attr.aria-busy]="submitting()" class="inline-flex min-h-12 items-center justify-center rounded-full bg-[#155c45] px-6 text-sm font-semibold text-white transition hover:bg-[#104b39] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#155c45] disabled:cursor-wait disabled:opacity-60">
+              {{ submitting() ? 'Submitting…' : 'Submit documents' }}
+            </button>
+          </form>
+        </article>
+      }
+    }
+  </div>
+</section>

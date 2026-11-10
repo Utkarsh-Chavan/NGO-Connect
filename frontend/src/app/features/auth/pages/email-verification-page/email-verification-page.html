@@ -1,0 +1,30 @@
+<section class="px-5 py-12 sm:px-8 sm:py-16">
+  <div class="mx-auto max-w-xl rounded-3xl border border-[#e4ebe3] bg-white p-6 shadow-sm sm:p-9">
+    <p class="text-xs font-semibold uppercase tracking-[.15em] text-[#66836e]">Account security</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-tight text-[#173b2e]">Verify your email</h1>
+
+    @if (state() === 'loading') {
+      <p class="mt-4 text-sm text-[#52645a]" role="status">Verifying your email…</p>
+    } @else if (state() === 'success') {
+      <div class="mt-5 rounded-2xl border border-[#cfe2cf] bg-[#f1f8ef] p-5" role="status">
+        <h2 class="font-semibold text-[#285b46]">Your email is verified</h2>
+        <p class="mt-2 text-sm leading-6 text-[#52645a]">You can now sign in to NGO Connect.</p>
+        <a routerLink="/login" class="mt-4 inline-flex min-h-10 items-center justify-center rounded-full bg-[#155c45] px-5 text-sm font-semibold text-white">Go to sign in</a>
+      </div>
+    } @else if (state() === 'invalid') {
+      <p class="mt-4 rounded-xl border border-[#f0ccc8] bg-[#fff7f5] p-4 text-sm leading-6 text-[#8e342d]" role="alert">This verification link is invalid or has expired. Request a new link from the sign-in page.</p>
+      <a routerLink="/login" class="mt-4 inline-flex font-semibold text-[#285b46] underline">Go to sign in</a>
+    } @else if (state() === 'error') {
+      <p class="mt-4 rounded-xl border border-[#f0ccc8] bg-[#fff7f5] p-4 text-sm leading-6 text-[#8e342d]" role="alert">We could not verify your email right now. Please try again later or request a new link from sign-in.</p>
+      <a routerLink="/login" class="mt-4 inline-flex font-semibold text-[#285b46] underline">Go to sign in</a>
+    } @else {
+      <p class="mt-4 text-sm leading-6 text-[#52645a]">Open the full verification link from your email or paste the development link printed in the backend terminal.</p>
+      <form class="mt-5 space-y-3" (submit)="$event.preventDefault(); submitManualLink()">
+        <label for="verification-link" class="block text-sm font-semibold text-[#30493a]">Verification link or token</label>
+        <input id="verification-link" type="text" autocomplete="off" [value]="manualLink()" (input)="updateManualLink($any($event.target).value)" class="min-h-12 w-full rounded-xl border border-[#cfdbd1] bg-white px-4 text-sm text-[#263c30] outline-none focus:border-[#528267] focus:ring-4 focus:ring-[#e7f1e8]" />
+        <button type="submit" class="inline-flex min-h-10 items-center justify-center rounded-full bg-[#155c45] px-5 text-sm font-semibold text-white">Verify email</button>
+      </form>
+      <a routerLink="/login" class="mt-5 inline-flex font-semibold text-[#285b46] underline">Go to sign in</a>
+    }
+  </div>
+</section>

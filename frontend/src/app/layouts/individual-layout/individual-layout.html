@@ -1,0 +1,29 @@
+<div class="min-h-screen bg-[#f7f8f2] text-[#20372b]">
+  <a href="#individual-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-3 focus:shadow">Skip to workspace</a>
+  <header class="border-b border-[#e3e9dd] bg-[#fffefa]">
+    <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-7">
+      <a routerLink="/individual/dashboard" (click)="closeMenu()" class="flex items-center gap-3 rounded-xl focus-visible:outline-2 focus-visible:outline-[#155c45]">
+        <span class="grid size-10 place-items-center rounded-2xl bg-[#155c45] text-lg text-white" aria-hidden="true">♡</span>
+        <span><span class="block text-base font-bold text-[#173b2e]">NGO Connect</span><span class="block text-xs text-[#748276]">Your community workspace</span></span>
+      </a>
+      <button type="button" class="inline-flex min-h-11 items-center rounded-xl border border-[#d6e0d3] px-4 text-sm font-semibold text-[#285b46] md:hidden" [attr.aria-expanded]="menuOpen()" aria-controls="individual-navigation" (click)="menuOpen.update(value => !value)">{{ menuOpen() ? 'Close menu' : 'Menu' }}</button>
+      <app-notification-center aria-label="Notifications" />
+      <div class="hidden items-center gap-4 md:flex">
+        <span class="text-right"><span class="block text-sm font-semibold">{{ auth.currentUser()?.name }}</span><span class="block text-xs text-[#748276]">Individual</span></span>
+        <button type="button" (click)="logout()" class="min-h-10 rounded-full border border-[#d6e0d3] px-4 text-sm font-semibold text-[#285b46] hover:bg-[#edf4e9]">Sign out</button>
+      </div>
+    </div>
+    <nav id="individual-navigation" aria-label="Individual workspace" class="mx-auto max-w-7xl px-4 pb-3 sm:px-7" [class.hidden]="!menuOpen()" [class.md:block]="true">
+      <div class="flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
+        <a routerLink="/individual/dashboard" routerLinkActive="bg-[#eaf1e6] text-[#155c45]" (click)="closeMenu()" class="rounded-full px-4 py-2.5 text-sm font-semibold text-[#52645a] hover:bg-[#f0f4ed]">Dashboard</a>
+        <a routerLink="/individual/needs" routerLinkActive="bg-[#eaf1e6] text-[#155c45]" (click)="closeMenu()" class="rounded-full px-4 py-2.5 text-sm font-semibold text-[#52645a] hover:bg-[#f0f4ed]">Browse Needs</a>
+        <a routerLink="/individual/applications" routerLinkActive="bg-[#eaf1e6] text-[#155c45]" (click)="closeMenu()" class="rounded-full px-4 py-2.5 text-sm font-semibold text-[#52645a] hover:bg-[#f0f4ed]">My Applications</a>
+        <a routerLink="/individual/contributions" routerLinkActive="bg-[#eaf1e6] text-[#155c45]" (click)="closeMenu()" class="rounded-full px-4 py-2.5 text-sm font-semibold text-[#52645a] hover:bg-[#f0f4ed]">My Contributions</a>
+        <a routerLink="/individual/profile" routerLinkActive="bg-[#eaf1e6] text-[#155c45]" (click)="closeMenu()" class="rounded-full px-4 py-2.5 text-sm font-semibold text-[#52645a] hover:bg-[#f0f4ed]">My Profile</a>
+        <span class="mt-2 border-t border-[#e7ece3] pt-3 text-sm font-medium text-[#52645a] md:hidden">{{ auth.currentUser()?.name }} · Individual <button type="button" (click)="logout()" class="ml-3 font-bold text-[#155c45]">Sign out</button></span>
+      </div>
+    </nav>
+  </header>
+  <main id="individual-content" class="min-h-[calc(100vh-8rem)]"><router-outlet /></main>
+  <footer class="border-t border-[#e3e9dd] bg-[#fffefa]"><div class="mx-auto max-w-7xl px-4 py-6 text-sm text-[#748276] sm:px-7">Small acts, stronger communities.</div></footer>
+</div>

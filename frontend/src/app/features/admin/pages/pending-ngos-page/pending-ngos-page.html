@@ -1,0 +1,69 @@
+<section class="px-5 py-12 sm:px-8 sm:py-16">
+  <div class="mx-auto max-w-5xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.15em] text-[#66836e]">Administration</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[#173b2e] sm:text-4xl">NGO verification</h1>
+    <p class="mt-3 max-w-2xl text-sm leading-6 text-[#68796f]">Review NGO profiles waiting for verification. Decisions are saved by the server.</p>
+
+    @if (notice()) { <p class="mt-6 rounded-xl border border-[#cfe2d0] bg-[#f0f8ef] p-4 text-sm font-medium text-[#285b46]" role="status">{{ notice() }}</p> }
+    @if (errors().length) {
+      <div class="mt-6 rounded-xl border border-[#f0ccc8] bg-[#fff7f5] p-4 text-sm text-[#8e342d]" role="alert">
+        <ul class="list-inside list-disc space-y-1">@for (message of errors(); track message) { <li>{{ message }}</li> }</ul>
+        <button type="button" (click)="load()" class="mt-3 rounded-full border border-[#d7a19b] px-4 py-2 font-semibold">Try again</button>
+      </div>
+    }
+
+    @if (loading()) {
+      <p class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-6 text-sm text-[#557164]" role="status">Loading pending NGO profiles…</p>
+    } @else if (!errors().length && !ngos().length) {
+      <div class="mt-8 rounded-2xl border border-[#e4ebe3] bg-white p-8 text-center">
+        <h2 class="text-lg font-semibold text-[#263c30]">No profiles are awaiting review</h2>
+        <p class="mt-2 text-sm text-[#68796f]">Pending NGO profiles will appear here.</p>
+      </div>
+    } @else if (ngos().length) {
+      <div class="mt-8 space-y-4">
+        @for (ngo of ngos(); track ngo.ngo_id) {
+          <article class="rounded-2xl border border-[#e4ebe3] bg-white p-6 shadow-sm">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 class="text-xl font-semibold text-[#173b2e]"><a [routerLink]="['/admin/ngos', ngo.ngo_id, 'verification']" class="rounded-sm hover:text-[#155c45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155c45]">{{ ngo.name }}</a></h2>
+                <p class="mt-1 text-sm text-[#52645a]">{{ ngo.email }} · {{ ngo.city }}</p>
+              </div>
+              <span class="rounded-full bg-[#fbf5e6] px-3 py-1 text-xs font-semibold text-[#715e37]">{{ ngo.verification_status }}</span>
+            </div>
+            @if (ngo.description) { <p class="mt-4 text-sm leading-6 text-[#68796f]">{{ ngo.description }}</p> }
+            <dl class="mt-4 grid gap-2 text-sm text-[#52645a] sm:grid-cols-2">
+              @if (ngo.phone) { <div><dt class="inline font-semibold">Phone: </dt><dd class="inline">{{ ngo.phone }}</dd></div> }
+              @if (ngo.address) { <div><dt class="inline font-semibold">Address: </dt><dd class="inline">{{ ngo.address }}</dd></div> }
+              <div><dt class="inline font-semibold">Submitted: </dt><dd class="inline">{{ ngo.created_at | date:'mediumDate' }}</dd></div>
+            </dl>
+            <a [routerLink]="['/admin/ngos', ngo.ngo_id, 'verification']" class="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#cfdbd1] px-4 text-sm font-semibold text-[#285b46] transition hover:bg-[#edf5eb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155c45]">Review submission</a>
+
+            @if (confirmation()?.ngoId === ngo.ngo_id) {
+              <div class="mt-5 rounded-xl border border-[#e4ebe3] bg-[#f7f9f5] p-4" role="group" aria-label="Confirm verification decision">
+                <p class="text-sm font-medium text-[#263c30]">Confirm {{ confirmation()?.decision === 'APPROVED' ? 'approval' : 'rejection' }} of {{ ngo.name }}?</p>
+                @if (confirmation()?.decision === 'REJECTED') {
+                  <label for="quick-rejection-message" class="mt-3 block text-sm font-semibold text-[#30493a]">Rejection reason <span class="text-[#a33b32">Required</span></label>
+                  <textarea id="quick-rejection-message" rows="2" maxlength="5000" [value]="decisionMessage()" (input)="decisionMessage.set($any($event.target).value)" class="mt-2 w-full rounded-xl border border-[#cfdbd1] bg-white px-3 py-2 text-sm focus:border-[#528267] focus:outline-none focus:ring-4 focus:ring-[#e7f1e8]"></textarea>
+                }
+                <div class="mt-3 flex flex-wrap gap-3">
+                  <button type="button" (click)="confirmDecision()" [disabled]="savingNgoId() === ngo.ngo_id" class="min-h-10 rounded-full bg-[#155c45] px-4 text-sm font-semibold text-white disabled:opacity-50">{{ savingNgoId() ? 'Saving…' : 'Confirm decision' }}</button>
+                  <button type="button" (click)="cancelDecision()" [disabled]="savingNgoId() === ngo.ngo_id" class="min-h-10 rounded-full border border-[#cfdbd1] px-4 text-sm font-semibold text-[#285b46]">Cancel</button>
+                </div>
+              </div>
+            } @else {
+              <div class="mt-5 flex flex-wrap gap-3">
+                <button type="button" (click)="requestDecision(ngo.ngo_id, 'APPROVED')" [disabled]="!!savingNgoId()" class="min-h-10 rounded-full bg-[#155c45] px-4 text-sm font-semibold text-white disabled:opacity-50">Approve</button>
+                <button type="button" (click)="requestDecision(ngo.ngo_id, 'REJECTED')" [disabled]="!!savingNgoId()" class="min-h-10 rounded-full border border-[#d7a19b] px-4 text-sm font-semibold text-[#8e342d] disabled:opacity-50">Reject</button>
+              </div>
+            }
+          </article>
+        }
+      </div>
+      <nav aria-label="Pending NGO pages" class="mt-8 flex items-center justify-between">
+        <button type="button" (click)="previousPage()" [disabled]="offset() === 0 || loading()" class="min-h-11 rounded-full border border-[#cfdbd1] px-5 text-sm font-semibold text-[#285b46] disabled:opacity-40">Previous</button>
+        <span class="text-xs text-[#718077]">Showing {{ offset() + 1 }}–{{ offset() + ngos().length }}</span>
+        <button type="button" (click)="nextPage()" [disabled]="ngos().length < limit || loading()" class="min-h-11 rounded-full border border-[#cfdbd1] px-5 text-sm font-semibold text-[#285b46] disabled:opacity-40">Next</button>
+      </nav>
+    }
+  </div>
+</section>
